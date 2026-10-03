@@ -1,11 +1,25 @@
 # Spotify Immersive Lyrics
 
-1. Open Chrome/Edge/Brave → `chrome://extensions`
-2. Turn on **Developer mode** (top right)
-3. Click **Load unpacked** → select this folder
-4. Open https://open.spotify.com and play a song
-5. Click the white **Immersive** button (bottom right) or press **Alt+L**
-6. Press **Esc** to exit
+A Chrome, Edge, or Brave extension that shows Spotify lyrics in a full-screen view with album art and synced scrolling.
 
-Click any lyric line to jump to that moment.
-If lyrics feel early/late, change `LYRIC_OFFSET` at the top of content.js.
+## Install
+
+1. Open `chrome://extensions`.
+2. Turn on **Developer mode**.
+3. Click **Load unpacked** and select this folder.
+4. Open https://open.spotify.com and start playing a song.
+
+## Use
+
+- Press **Alt + L** to open or close full-screen lyrics mode.
+- You can also click the **Immersive** button at the bottom right of Spotify.
+- Press **Esc** to exit full-screen mode.
+- Click a lyric line to seek to that point in the song.
+
+## Hindi songs and missing lyrics
+
+Lyrics come from Spotify first and LRCLIB as a backup. Hindi songs can be missing when Spotify or LRCLIB does not have a lyric match for that particular title, transliteration, remix, or movie version. The extension now tries common title and artist variations, but it cannot display lyrics that neither service provides.
+
+If a song is not found, try playing the exact album or single version and reopen the view with **Alt + L**. Lyrics may also be plain, unsynced text when timestamps are unavailable.
+
+If lyrics feel early or late, adjust `LYRIC_OFFSET` near the top of `content.js`.
