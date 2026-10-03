@@ -1,0 +1,76 @@
+#sil-toggle {
+  position: fixed; right: 16px; bottom: 96px; z-index: 9999;
+  padding: 8px 14px; border: 0; border-radius: 999px; cursor: pointer;
+  background: #fff; color: #000; font: 700 13px/1 system-ui, sans-serif;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+#sil-toggle:hover { transform: scale(1.04); }
+
+#sil-root {
+  --c1: #3a4a6b; --c2: #222c44; --c3: #10131f;
+  display: none; position: fixed; inset: 0; z-index: 2147483000;
+  color: #fff; font-family: "Inter", "Noto Sans Devanagari", system-ui, sans-serif;
+  overflow: hidden;
+}
+#sil-root.open { display: block; }
+
+.sil-bg {
+  position: absolute; inset: -20%;
+  background:
+    radial-gradient(60% 60% at 15% 20%, var(--c1), transparent 70%),
+    radial-gradient(55% 55% at 85% 80%, var(--c2), transparent 70%),
+    var(--c3);
+  filter: blur(40px) saturate(1.2);
+  transition: background 1s;
+}
+.sil-close {
+  position: absolute; top: 20px; right: 24px; z-index: 3;
+  width: 40px; height: 40px; border: 0; border-radius: 50%;
+  background: rgba(255,255,255,.12); color: #fff; font-size: 16px; cursor: pointer;
+}
+.sil-close:hover { background: rgba(255,255,255,.25); }
+
+.sil-stage {
+  position: relative; z-index: 2; height: 100%;
+  display: grid; grid-template-columns: minmax(300px, 42%) 1fr; align-items: center;
+  gap: 4vw; padding: 0 5vw;
+}
+.sil-left { display: flex; flex-direction: column; gap: 6px; }
+.sil-art {
+  width: min(100%, 52vh); aspect-ratio: 1; object-fit: cover; border-radius: 10px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.55); margin: 0 auto 22px;
+}
+.sil-title, .sil-artist { width: min(100%, 52vh); margin-left: auto; margin-right: auto; }
+.sil-title { font-size: 1.5rem; font-weight: 700; margin-top: 0; margin-bottom: 0; }
+.sil-artist { font-size: 1.05rem; opacity: .65; margin-top: 0; }
+
+.sil-right { height: 100%; overflow: hidden; position: relative; }
+.sil-right::before, .sil-right::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 18%; z-index: 1; pointer-events: none;
+}
+.sil-lyrics {
+  height: 100%; overflow-y: auto; padding: 38vh 2vw 38vh 0; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+          mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+}
+.sil-lyrics::-webkit-scrollbar { display: none; }
+
+.sil-line {
+  margin: 0 0 .55em; font-size: clamp(1.6rem, 3.2vw, 3rem); font-weight: 800; line-height: 1.2;
+  opacity: calc(.55 - var(--d, 3) * .06); filter: blur(calc(var(--d, 3) * .35px));
+  transform-origin: left center; transform: scale(.94);
+  transition: opacity .4s, transform .4s, filter .4s; cursor: pointer;
+}
+.sil-line:hover { opacity: .85; filter: none; }
+.sil-line.active { opacity: 1; filter: none; transform: scale(1); }
+.sil-line.gap { letter-spacing: .3em; }
+.sil-lyrics.plain .sil-line { opacity: .9; filter: none; transform: none; font-size: 1.5rem; cursor: default; }
+.sil-msg { font-size: 1.4rem; opacity: .6; font-weight: 600; }
+
+@media (max-width: 800px) {
+  .sil-stage { grid-template-columns: 1fr; padding: 4vh 6vw; }
+  .sil-art { width: 40vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sil-line, .sil-bg { transition: none; }
+}
