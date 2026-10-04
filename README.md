@@ -13,8 +13,12 @@ A Chrome, Edge, or Brave extension that shows Spotify lyrics in a full-screen vi
 
 - Press **Alt + L** to open or close full-screen lyrics mode.
 - You can also click the **Immersive** button at the bottom right of Spotify.
+- Use the previous, play/pause, and next buttons below the album art to control playback.
 - Press **Esc** to exit full-screen mode.
 - Click a lyric line to seek to that point in the song.
+
+The full-screen background uses the current album cover with a soft, color-matched gradient
+that updates when the song changes.
 
 ## Hindi songs and missing lyrics
 

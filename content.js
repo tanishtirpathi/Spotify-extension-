@@ -6,7 +6,9 @@
     cover: '[data-testid="cover-art-image"]',
     pos: '[data-testid="playback-position"]',
     dur: '[data-testid="playback-duration"]',
-    play: '[data-testid="control-button-playpause"]',
+    play: "play",
+    previous: "previous",
+    next: "next",
   };
   const LYRIC_OFFSET = 0.25; // seconds, tweak if lyrics feel early/late
 
@@ -21,6 +23,16 @@
         <img class="sil-art" alt="">
         <h1 class="sil-title"></h1>
         <p class="sil-artist"></p>
+        <div class="sil-controls" aria-label="Playback controls">
+          <button class="sil-control sil-previous" type="button" title="Previous track" aria-label="Previous track">⏮</button>
+          <button class="sil-control sil-play" type="button" title="Play" aria-label="Play">▶</button>
+          <button class="sil-control sil-next" type="button" title="Next track" aria-label="Next track">⏭</button>
+        </div>
+        <div class="sil-progress">
+          <span class="sil-time sil-current">0:00</span>
+          <input class="sil-seek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Seek through song">
+          <span class="sil-time sil-duration">0:00</span>
+        </div>
       </section>
       <section class="sil-right"><div class="sil-lyrics"></div></section>
     </div>`;
@@ -38,6 +50,13 @@
     title: root.querySelector(".sil-title"),
     artist: root.querySelector(".sil-artist"),
     lyrics: root.querySelector(".sil-lyrics"),
+    controls: root.querySelector(".sil-controls"),
+    previous: root.querySelector(".sil-previous"),
+    play: root.querySelector(".sil-play"),
+    next: root.querySelector(".sil-next"),
+    seek: root.querySelector(".sil-seek"),
+    current: root.querySelector(".sil-current"),
+    duration: root.querySelector(".sil-duration"),
   };
 
   // ---------- open / close ----------
@@ -52,6 +71,32 @@
   }
   toggle.onclick = () => (root.classList.contains("open") ? close() : open());
   root.querySelector(".sil-close").onclick = close;
+  function spotifyButton(kind) {
+    const buttons = document.querySelectorAll('button, [role="button"]');
+    return [...buttons].find((button) => {
+      if (root.contains(button)) return false;
+      const testId = button.getAttribute("data-testid")?.toLowerCase() || "";
+      const label = [
+        button.getAttribute("aria-label"),
+        button.getAttribute("title"),
+        testId,
+      ].filter(Boolean).join(" ").toLowerCase();
+      if (kind === SEL.play) return testId.includes("playpause") || /\b(play|pause)\b/.test(label);
+      if (kind === SEL.previous) return /previous|skip.?back|prev/.test(label);
+      return /next|skip.?forward/.test(label);
+    });
+  }
+  function clickSpotifyControl(kind) {
+    const button = spotifyButton(kind);
+    if (button) button.click();
+  }
+  el.previous.onclick = () => clickSpotifyControl(SEL.previous);
+  el.next.onclick = () => clickSpotifyControl(SEL.next);
+  el.play.onclick = () => clickSpotifyControl(SEL.play);
+  el.seek.oninput = () => {
+    const duration = Number(el.seek.max);
+    if (duration) seekTo(Number(el.seek.value));
+  };
   document.addEventListener("fullscreenchange", () => {
     if (!document.fullscreenElement) root.classList.remove("open");
   });
@@ -76,9 +121,37 @@
       basePos = toSec(t);
       lastChange = performance.now();
     }
-    const playing = $(SEL.play)?.getAttribute("aria-label")?.toLowerCase().includes("pause");
+    const playing = spotifyButton(SEL.play)?.getAttribute("aria-label")?.toLowerCase().includes("pause");
     // Spotify only shows whole seconds, so interpolate between ticks
     return basePos + (playing ? Math.min((performance.now() - lastChange) / 1000, 1) : 0);
+  }
+
+  function syncControls() {
+    const spotifyPlay = spotifyButton(SEL.play);
+    const isPlaying = spotifyPlay?.getAttribute("aria-label")?.toLowerCase().includes("pause");
+    const label = isPlaying ? "Pause" : "Play";
+    el.play.textContent = isPlaying ? "Ⅱ" : "▶";
+    el.play.title = label;
+    el.play.setAttribute("aria-label", label);
+    el.controls.classList.toggle("is-playing", Boolean(isPlaying));
+  }
+
+  function formatTime(seconds) {
+    seconds = Math.max(0, Math.floor(Number(seconds) || 0));
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  }
+
+  function syncProgress() {
+    const duration = toSec($(SEL.dur)?.textContent);
+    const time = Math.min(currentTime(), duration || 0);
+    if (duration > 0) {
+      el.seek.max = String(duration);
+      if (document.activeElement !== el.seek) el.seek.value = String(time);
+    }
+    el.current.textContent = formatTime(time);
+    el.duration.textContent = formatTime(duration);
+    const percentage = duration ? (time / duration) * 100 : 0;
+    el.seek.style.setProperty("--progress", `${percentage}%`);
   }
 
   // ---------- track + lyrics ----------
@@ -106,6 +179,7 @@
       const fallback = ($(SEL.cover) || $('[data-testid="now-playing-widget"] img'))?.src || "";
       el.art.onerror = () => { if (fallback && el.art.src !== fallback) el.art.src = fallback; };
       el.art.src = cover;
+      root.style.setProperty("--cover", `url("${cover.replace(/["\\)]/g, "\\$&")}")`);
       applyColors(cover);
     }
     showMessage("Finding lyrics…");
@@ -209,6 +283,8 @@
   function tick() {
     if (root.classList.contains("open")) {
       refreshTrack(false);
+      syncControls();
+      syncProgress();
       if (lines.length) {
         const t = currentTime() + LYRIC_OFFSET;
         let idx = -1;

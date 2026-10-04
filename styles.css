@@ -8,6 +8,7 @@
 
 #sil-root {
   --c1: #3a4a6b; --c2: #222c44; --c3: #10131f;
+  --cover: none;
   display: none; position: fixed; inset: 0; z-index: 2147483000;
   color: #fff; font-family: "Inter", "Noto Sans Devanagari", system-ui, sans-serif;
   overflow: hidden;
@@ -17,11 +18,25 @@
 .sil-bg {
   position: absolute; inset: -20%;
   background:
+    linear-gradient(115deg, rgba(8, 9, 15, .88), rgba(8, 9, 15, .28) 48%, rgba(8, 9, 15, .86)),
     radial-gradient(60% 60% at 15% 20%, var(--c1), transparent 70%),
     radial-gradient(55% 55% at 85% 80%, var(--c2), transparent 70%),
     var(--c3);
-  filter: blur(40px) saturate(1.2);
-  transition: background 1s;
+  background-image:
+    linear-gradient(115deg, rgba(8, 9, 15, .88), rgba(8, 9, 15, .28) 48%, rgba(8, 9, 15, .86)),
+    radial-gradient(60% 60% at 15% 20%, var(--c1), transparent 70%),
+    radial-gradient(55% 55% at 85% 80%, var(--c2), transparent 70%),
+    var(--cover);
+  background-position: center;
+  background-size: cover;
+  filter: blur(42px) saturate(1.25);
+  transform: scale(1.08);
+  transition: background 1s, filter 1s;
+}
+.sil-bg::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(5, 6, 12, .5), transparent 55%, rgba(5, 6, 12, .35));
 }
 .sil-close {
   position: absolute; top: 20px; right: 24px; z-index: 3;
@@ -43,6 +58,24 @@
 .sil-title, .sil-artist { width: min(100%, 52vh); margin-left: auto; margin-right: auto; }
 .sil-title { font-size: 1.5rem; font-weight: 700; margin-top: 0; margin-bottom: 0; }
 .sil-artist { font-size: 1.05rem; opacity: .65; margin-top: 0; }
+.sil-controls {
+  display: flex; align-items: center; gap: 14px; margin: 16px auto 0;
+}
+.sil-control {
+  width: 42px; height: 42px; border: 0; border-radius: 50%;
+  display: grid; place-items: center; padding: 0;
+  background: rgba(255,255,255,.13); color: #fff;
+  font: 700 17px/1 system-ui, sans-serif; cursor: pointer;
+  transition: transform .2s, background .2s, box-shadow .2s;
+}
+.sil-control:hover { background: rgba(255,255,255,.25); transform: scale(1.08); }
+.sil-control:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.sil-play {
+  width: 54px; height: 54px; font-size: 20px; padding-left: 2px;
+  color: #11131a; background: #fff;
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
+.sil-play:hover { background: #fff; box-shadow: 0 10px 28px rgba(0,0,0,.42); }
 
 .sil-right { height: 100%; overflow: hidden; position: relative; }
 .sil-right::before, .sil-right::after {
@@ -70,6 +103,7 @@
 @media (max-width: 800px) {
   .sil-stage { grid-template-columns: 1fr; padding: 4vh 6vw; }
   .sil-art { width: 40vw; }
+  .sil-right { min-height: 38vh; }
 }
 @media (prefers-reduced-motion: reduce) {
   .sil-line, .sil-bg { transition: none; }
