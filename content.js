@@ -37,6 +37,7 @@
       <section class="sil-right"><div class="sil-lyrics"></div></section>
     </div>`;
   document.body.appendChild(root);
+  root.addEventListener("click", (event) => event.stopPropagation());
 
   const toggle = document.createElement("button");
   toggle.id = "sil-toggle";
@@ -72,8 +73,7 @@
   toggle.onclick = () => (root.classList.contains("open") ? close() : open());
   root.querySelector(".sil-close").onclick = close;
   function spotifyButton(kind) {
-    const buttons = document.querySelectorAll('button, [role="button"]');
-    return [...buttons].find((button) => {
+    const buttons = [...document.querySelectorAll('button, [role="button"]')].filter((button) => {
       if (root.contains(button)) return false;
       const testId = button.getAttribute("data-testid")?.toLowerCase() || "";
       const label = [
@@ -85,6 +85,14 @@
       if (kind === SEL.previous) return /previous|skip.?back|prev/.test(label);
       return /next|skip.?forward/.test(label);
     });
+    const exact = buttons.find((button) =>
+      button.getAttribute("data-testid")?.toLowerCase() ===
+      `control-button-${kind === SEL.play ? "playpause" : kind === SEL.previous ? "skip-back" : "skip-forward"}`
+    );
+    if (exact) return exact;
+    return buttons.find((button) => button.closest(
+      '[data-testid="now-playing-bar"], [data-testid="now-playing-widget"], footer'
+    )) || buttons[0];
   }
   function clickSpotifyControl(kind) {
     const button = spotifyButton(kind);
@@ -93,7 +101,8 @@
   el.previous.onclick = () => clickSpotifyControl(SEL.previous);
   el.next.onclick = () => clickSpotifyControl(SEL.next);
   el.play.onclick = () => clickSpotifyControl(SEL.play);
-  el.seek.oninput = () => {
+  el.seek.onchange = (event) => {
+    event.stopPropagation();
     const duration = Number(el.seek.max);
     if (duration) seekTo(Number(el.seek.value));
   };
@@ -189,7 +198,12 @@
     if (key !== trackKey) return;
 
     const duration = toSec($(SEL.dur)?.textContent);
-    const result = await loadLyrics({ title, artist, duration });
+    let result = null;
+    try {
+      result = await loadLyrics({ title, artist, duration });
+    } catch (_) {
+      result = null;
+    }
     if (key !== trackKey) return; // song changed while loading
 
     if (result?.synced?.length) {
@@ -202,7 +216,7 @@
       el.lyrics.classList.add("plain");
     } else {
       lines = [];
-      showMessage("No lyrics found for this song");
+      showNoLyrics();
       el.lyrics.classList.remove("plain");
     }
   }
@@ -215,7 +229,7 @@
       const h = (e) => {
         if (e.source === window && e.data?.sil === "lyrics-res" && e.data.id === id) done(e.data.result);
       };
-      const to = setTimeout(() => done(null), 15000);
+      const to = setTimeout(() => done(null), 6000);
       window.addEventListener("message", h);
       window.postMessage({ sil: "lyrics-req", id, ...payload }, "*");
     });
@@ -231,30 +245,72 @@
   }
 
   async function loadLyrics(info) {
-    const spot = await askPage({ trackId: findTrackId(), title: info.title, artist: info.artist });
-    if (spot?.synced?.length || spot?.plain) return spot;
-    const res = await new Promise((r) => chrome.runtime.sendMessage({ type: "lyrics", ...info }, r));
-    if (res?.syncedLyrics) return { synced: parseLRC(res.syncedLyrics) };
-    if (res?.plainLyrics) return { plain: res.plainLyrics };
-    return null;
+    const spotRequest = askPage({ trackId: findTrackId(), title: info.title, artist: info.artist });
+    const backupRequest = new Promise((resolve, reject) => {
+      if (!chrome.runtime?.id) {
+        reject(new Error("Extension context unavailable"));
+        return;
+      }
+      try {
+        chrome.runtime.sendMessage({ type: "lyrics", ...info }, (result) => {
+          if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+          else resolve(result);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+    const valid = (result) => {
+      if (result?.synced?.some((line) => line?.text?.trim())) return result;
+      if (result?.plain?.trim()) return { plain: result.plain.trim() };
+      if (result?.syncedLyrics) {
+        const synced = parseLRC(result.syncedLyrics);
+        if (synced.length) return { synced };
+      }
+      if (result?.plainLyrics?.trim()) return { plain: result.plainLyrics.trim() };
+      throw new Error("No lyrics returned");
+    };
+    try {
+      return await Promise.any([spotRequest.then(valid), backupRequest.then(valid)]);
+    } catch (_) {
+      return null;
+    }
   }
 
   function parseLRC(lrc) {
     const out = [];
     for (const raw of lrc.split("\n")) {
-      const m = raw.match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)$/);
-      if (m) out.push({ t: +m[1] * 60 + +m[2], text: m[3].trim() });
+      const timestamps = [...raw.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
+      const text = raw.replace(/\[(\d+):(\d+(?:\.\d+)?)\]/g, "").trim();
+      for (const m of timestamps) {
+        if (text) out.push({ t: +m[1] * 60 + +m[2], text });
+      }
     }
-    return out;
+    return out.sort((a, b) => a.t - b.t);
   }
 
   function showMessage(msg) {
     activeIdx = -1;
+    el.lyrics.classList.remove("empty");
     el.lyrics.innerHTML = `<p class="sil-msg">${msg}</p>`;
+  }
+
+  function showNoLyrics() {
+    activeIdx = -1;
+    el.lyrics.classList.add("empty");
+    el.lyrics.innerHTML = `
+      <div class="sil-empty">
+        <div class="sil-empty-art" aria-hidden="true">
+          <span>♪</span><span>♫</span><span>♪</span>
+        </div>
+        <p class="sil-empty-title">This song is speaking in melodies</p>
+        <p class="sil-empty-copy">No lyrics found, but the feeling is still here.</p>
+      </div>`;
   }
 
   function renderLines(texts) {
     activeIdx = -1;
+    el.lyrics.classList.remove("empty");
     el.lyrics.innerHTML = "";
     texts.forEach((t, i) => {
       const p = document.createElement("p");
@@ -269,14 +325,35 @@
   // Click a line to seek by clicking on Spotify's own progress bar
   function seekTo(sec) {
     if (sec == null) return;
-    const bar = $('[data-testid="playback-progressbar"]');
+    const bar = $('[data-testid="playback-progressbar"], [data-testid="progress-bar"], [role="slider"][aria-valuemax]');
     const dur = toSec($(SEL.dur)?.textContent);
     if (!bar || !dur) return;
+    const ratio = Math.max(0, Math.min(1, sec / dur));
     const r = bar.getBoundingClientRect();
-    const x = r.left + (sec / dur) * r.width, y = r.top + r.height / 2;
-    ["mousedown", "mouseup", "click"].forEach((type) =>
-      bar.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: x, clientY: y }))
-    );
+    const x = Math.max(r.left, Math.min(r.right, r.left + ratio * r.width));
+    const y = r.top + r.height / 2;
+    try {
+      bar.dispatchEvent(new PointerEvent("pointerdown", {
+        bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 1, buttons: 1,
+      }));
+      bar.dispatchEvent(new PointerEvent("pointerup", {
+        bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 1,
+      }));
+      for (const type of ["mousedown", "mouseup", "click"]) {
+        bar.dispatchEvent(new MouseEvent(type, {
+          bubbles: true, cancelable: true, clientX: x, clientY: y,
+        }));
+      }
+    } catch (_) {
+      bar.dispatchEvent(new MouseEvent("click", {
+        bubbles: true, cancelable: true, clientX: x, clientY: y,
+      }));
+    }
+    bar.focus?.();
+    bar.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", code: "Home", bubbles: true }));
+    for (let i = 0; i < Math.round(ratio * 100); i++) {
+      bar.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", code: "ArrowRight", bubbles: true }));
+    }
   }
 
   // ---------- sync loop ----------

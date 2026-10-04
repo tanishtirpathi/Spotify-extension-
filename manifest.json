@@ -3,6 +3,11 @@
   "name": "Spotify Immersive Lyrics",
   "version": "1.1.0",
   "description": "Full-screen Spotify Web Player view with album art, synced lyrics and a background that matches the cover.",
+  "icons": {
+    "16": "icons/icon.png",
+    "48": "icons/icon.png",
+    "128": "icons/icon.png"
+  },
   "permissions": [],
   "host_permissions": ["https://open.spotify.com/*", "https://lrclib.net/*"],
   "background": { "service_worker": "background.js" },
